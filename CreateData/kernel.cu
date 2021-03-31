@@ -67,7 +67,7 @@ cudaError_t runGenerate()
         goto Error;
     }
 
-    create_rects<<<nBlocks, nThreads>>>(d, maxTriang, maxCircl, conflicts, polySize, rects);
+    create_rects<<<nBlocks, nThreads>>>(d, maxTriang, maxCircl, conflicts, polySize, polygon, rects);
 
     for (int i = 0; i < 4; i++)
         // чудовищная синхронизация, но всё потому, что недоступна CUDA 9
@@ -101,7 +101,8 @@ cudaError_t runGenerate()
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
-    }cudaStatus = cudaMemcpy(&resCircl, dev_nCircl, 1 * sizeof(int), cudaMemcpyDeviceToHost);
+    }
+    cudaStatus = cudaMemcpy(&resCircl, dev_nCircl, 1 * sizeof(int), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;

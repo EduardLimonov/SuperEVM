@@ -17,11 +17,12 @@ bool Rect::intersects(Rect& other)
 }
 
 __global__ void create_rects(Point d, int nTriang, int nCircl, Pair<thrust::device_vector<Rect>>* conflicts,
-	int polySize, thrust::device_vector<Rect>* rects)
+	int polySize, int* polygon, thrust::device_vector<Rect>* rects)
 {
 	curandState* state;
 	curand_init(unsigned(time(NULL)), threadIdx.x, 0, state);
 	
+	generateGarbage(d, polySize, polygon, state);
 
 	Point start(threadIdx.x * d.x, blockIdx.x * d.y); // левый верхний угол квадрата, обрабатываемого данной нитью
 	Point end = Point(start.x + d.x, start.y + d.y);
@@ -334,6 +335,21 @@ __device__ void drawTriangles(thrust::device_vector<Triangle>& triangles, int po
 		drawLine(t.p3, t.p2, polySize, polygon);
 		drawLine(t.p1, t.p3, polySize, polygon);
 	}
+}
+
+__device__ void generateGarbage(Point d, int polySize, int* polygon, curandState* state)
+{
+	for (int i = 0; i <= d.y; i++)
+		for (int j = 0; j <= d.x; j++)
+		{
+			int r;
+			do
+			{
+				r = randUniform(0, _UI8_MAX, state);
+			} while (r == TRIANG_COLOR || r == CIRCLE_COLOR);
+
+			polygon[j + i * polySize] = r;
+		}
 }
 
 __device__ void drawCircles(thrust::device_vector<Circle>& circles, int polySize, int* polygon)

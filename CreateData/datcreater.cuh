@@ -85,11 +85,12 @@ struct Pair
 };
 
 __global__ void create_rects(Point d, int nTriang, int nCircl, Pair<thrust::device_vector<Rect>>* conflicts, 
-	int polySize, thrust::device_vector<Rect>* rects);
+	int polySize, int* polygon, thrust::device_vector<Rect>* rects);
 __global__ void resolveConflicts(Pair<thrust::device_vector<Rect>>* conf, int nSide);
 __global__ void create_objects(int nTriang, int nCircl, Pair<thrust::device_vector<Rect>>* conflicts,
 	int polySize, int* polygon, thrust::device_vector<Rect>* rects, int* realTriang, int* realCirc);
 
+__device__ void generateGarbage(Point d, int polySize, int* polygon, curandState* state);
 __device__ void pop_intersecting(thrust::device_vector<Rect> &v);
 __device__ void resolveConflicts(Pair<thrust::device_vector<Rect>>* conf); // вместо этого будет использоваться __global__ void resolveConflicts
 
