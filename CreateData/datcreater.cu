@@ -80,10 +80,8 @@ __global__ void create_objects(int nTriang, int nCircl, Pair<thrust::device_vect
 	// теперь прямоугольники не пересекаются
 
 	thrust::device_vector<Triangle> triangles;
-	//cudaMalloc(&triangles, sizeof(thrust::device_vector<Triangle>));
 
 	thrust::device_vector<Circle> circles;
-	//cudaMalloc(&circles, sizeof(thrust::device_vector<Circle>));
 
 	generateTriangles(triangles, nTriang * df, *rects, state);
 	generateCircles(circles, nCircl * df, *rects);
@@ -131,7 +129,7 @@ __device__ void resolveConflicts(thrust::device_vector<Rect>& v1, thrust::device
 __device__ void resolveConflicts(Pair<thrust::device_vector<Rect>>* conf)
 // решить все пограничные конфликты прямоугольников;
 // first -- векторы на границе слева-сверху; second -- справа-снизу
-// синхронизация удалена -- НЕ ИСПОЛЬЗОВАТЬ!!!
+// синхронизация удалена -- НЕ ИСПОЛЬЗОВАТЬ ЭТУ МЕРЗОСТЬ БЕЗ ДОБАВЛЕНИЯ СИНХРОНИЗАЦИИ!!!
 {
 	auto v1 = conf[blockIdx.x * gridDim.x + threadIdx.x].second;
 
