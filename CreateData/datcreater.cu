@@ -2,7 +2,6 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <thrust/device_vector.h>
-#include <cooperative_groups.h>
 #include "curand_kernel.h"
 
 template<typename T1, typename T2>
