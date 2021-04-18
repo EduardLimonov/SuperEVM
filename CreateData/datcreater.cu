@@ -386,7 +386,7 @@ __device__ void drawCircles(thrust::device_vector<Circle>& circles, int polySize
 	}
 }
 
-__device__ int abs(int x)
+__device__ int _abs(int x)
 {
 	return x > 0 ? x : -x;
 }
@@ -402,7 +402,7 @@ __device__ void drawLine(Point p1, Point p2, int polySize, int* polygon)
 	// это ужасно, но что поделаешь?..
 	int dx = p2.x - p1.x, dy = p2.y - p1.y, d, x, y, d1, d2;
 
-	if (((abs(dx) > abs(dy)) && (p2.x < p1.x)) || ((abs(dx) <= abs(dy)) && (p2.y < p1.y)))
+	if (((_abs(dx) > _abs(dy)) && (p2.x < p1.x)) || ((_abs(dx) <= _abs(dy)) && (p2.y < p1.y)))
 	{
 		x = p1.x;
 		p1.x = p2.x;
@@ -418,7 +418,7 @@ __device__ void drawLine(Point p1, Point p2, int polySize, int* polygon)
 	drawPixel(p1.x, p1.y, polySize, polygon, TRIANG_COLOR);
 	int stp = 1;
 
-	if (abs(dx) > abs(dy))
+	if (_abs(dx) > _abs(dy))
 	{
 		if (dy < 0)
 		{
