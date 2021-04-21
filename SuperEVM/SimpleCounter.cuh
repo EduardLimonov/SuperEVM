@@ -39,10 +39,12 @@ struct Point
 -> coord % iter
 };*/
 
-__global__ void run(int polySize, int* polygon, Point d, int* circles, int* triangs, int nXY);
+__device__ void run(int polySize, int* polygon, Point d, int* circles, int* triangs, int nXY,
+	thrust::device_vector<int>* dones); // для одного блока
 __device__ int make_cycle(int idx, int polySize, int* polygon, Point start, Point end,
 	thrust::device_vector<int>& done);
 __device__ thrust::device_vector<int> neighs(Point pos, Point& start, Point& stop, int polySize, int* polygon);
+__device__ void uniteDones(thrust::device_vector<int>* dones, int iter);
 
 __device__ Point getXY();
 __device__ bool contains(thrust::device_vector<int> &v, int p);
@@ -51,7 +53,7 @@ __device__ int getByPoint(Point p, int polySize);
 __device__ void addNeigh(thrust::device_vector<int>& stack, Point pos, Point &start, Point &stop,
 	thrust::device_vector<int>& done, int polySize, int* polygon);
 
-__device__ thrust::device_vector<int>* getAwayPoint(thrust::device_vector<int>* away, Point d = {0, 0});
+__device__ thrust::device_vector<int>* getDonesPoint(thrust::device_vector<int>* dones, Point d = {0, 0});
 
 __device__ bool onBorder(Point t, Point& start, Point& end);
 __device__ bool outBorder(Point t, Point& start, Point& end);

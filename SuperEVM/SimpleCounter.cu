@@ -1,13 +1,17 @@
 ﻿#include "SimpleCounter.cuh"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include <cuda.h>
+#include <cuda_runtime_api.h>
+#include <device_launch_parameters.h>
 
-__device__ void run(int polySize, int* polygon, Point d, int* circles, int* triangs, int nXY)
+__device__ void run(int polySize, int* polygon, Point d, int* circles, int* triangs, int nXY,
+	thrust::device_vector<int>* dones)
 {
 	Point xy = getXY();
 	Point start = Point(xy.x * d.x, xy.y * d.y);
 
-	thrust::device_vector<int> done;
+	thrust::device_vector<int> &done = *getDonesPoint(dones);
 
 	// выполняем редукцию
 	for (int iter = 1; iter < nXY; iter *= 2)
@@ -18,10 +22,30 @@ __device__ void run(int polySize, int* polygon, Point d, int* circles, int* tria
 		Point xy = getXY();
 		if (xy.x % iter == 0 && xy.y % iter == 0)
 		{
-			for (int x = start.x; x < end.x; x++)
-				for (int y = start.y; y < end.y; y++)
+			if (iter == 1)
+				// проходимся по всему полигону
+				for (int x = start.x; x < end.x; x++)
+					for (int y = start.y; y < end.y; y++)
+					{
+						int idx = getByPoint(Point(x, y), polySize);
+						if (
+							(polygon[idx] == CIRCLE_COLOR || polygon[idx] == TRIANG_COLOR) &&
+							!contains(done, idx)
+							)
+							if (polygon[idx] == CIRCLE_COLOR)
+								*circles += make_cycle(idx, polySize, polygon, start, end, done);
+							else
+								*triangs += make_cycle(idx, polySize, polygon, start, end, done);
+					}
+			else
+				// проходимся только по "центральному перекрестью"
+			{
+				uniteDones(dones, iter); // сначала добавили к себе всё, что знают соседи
+				int cx = start.x + (end.x - start.x) / 2, 
+					cy = start.y + (end.y - start.y) / 2;
+				for (int x = start.x; x < end.x; x++)
 				{
-					int idx = getByPoint(Point(x, y), polySize);
+					int idx = getByPoint(Point(x, cy), polySize);
 					if (
 						(polygon[idx] == CIRCLE_COLOR || polygon[idx] == TRIANG_COLOR) &&
 						!contains(done, idx)
@@ -31,6 +55,20 @@ __device__ void run(int polySize, int* polygon, Point d, int* circles, int* tria
 						else
 							*triangs += make_cycle(idx, polySize, polygon, start, end, done);
 				}
+
+				for (int y = start.y; y < end.y; y++)
+				{
+					int idx = getByPoint(Point(cx, y), polySize);
+					if (
+						(polygon[idx] == CIRCLE_COLOR || polygon[idx] == TRIANG_COLOR) &&
+						!contains(done, idx)
+						)
+						if (polygon[idx] == CIRCLE_COLOR)
+							*circles += make_cycle(idx, polySize, polygon, start, end, done);
+						else
+							*triangs += make_cycle(idx, polySize, polygon, start, end, done);
+				}
+			}
 		}
 		__syncthreads();
 	}
@@ -39,10 +77,10 @@ __device__ void run(int polySize, int* polygon, Point d, int* circles, int* tria
 __device__ int make_cycle(int idx, int polySize, int* polygon, Point start, Point end,
 	thrust::device_vector<int>& done)
 {
+	int next = done.size();
 	thrust::device_vector<int> todo;
 	Point t = getByCoords(idx, polySize);
 	todo.push_back(idx);
-	bool got_border = false;
 
 	while (todo.size())
 	{
@@ -57,7 +95,12 @@ __device__ int make_cycle(int idx, int polySize, int* polygon, Point start, Poin
 	if (contains(start_neighs, idx))
 		return 1;
 	else
+	{
+		// нужно удалить из done все добавленные точки
+		if (done.size() > next)
+			done.erase(done.begin() + next, done.end());
 		return 0;
+	}
 }
 
 __device__ thrust::device_vector<int> neighs(Point pos, Point& start, Point& stop, int polySize, int* polygon)
@@ -76,6 +119,23 @@ __device__ thrust::device_vector<int> neighs(Point pos, Point& start, Point& sto
 				res.push_back(idx);
 		}
 	return res;
+}
+
+__device__ void uniteDones(thrust::device_vector<int>* dones, int iter)
+{
+	iter /= 2; // iter -- расстояние до вектора с вершинами соседа
+	auto me = getDonesPoint(dones),
+		right = getDonesPoint(dones, { iter, 0 }),
+		bottom = getDonesPoint(dones, { 0, iter }),
+		rightbottom = getDonesPoint(dones, { iter, iter });
+
+	me->insert(me->end(), right->begin(), right->end());
+	me->insert(me->end(), bottom->begin(), bottom->end());
+	me->insert(me->end(), rightbottom->begin(), rightbottom->end());
+
+	right->clear();
+	bottom->clear();
+	rightbottom->clear();
 }
 
 __device__ bool onBorder(Point t, Point& start, Point& end)
@@ -126,9 +186,9 @@ __device__ Point getXY()
 	return Point(threadIdx.x, blockIdx.x);
 }
 
-__device__ thrust::device_vector<int>* getAwayPoint(thrust::device_vector<int>* away, Point d)
+__device__ thrust::device_vector<int>* getDonesPoint(thrust::device_vector<int>* dones, Point d)
 {
-	return away + (threadIdx.x + d.x) + (blockIdx.x + d.y) * gridDim.x;
+	return dones + (threadIdx.x + d.x) + (blockIdx.x + d.y) * gridDim.x;
 }
 
 __device__ int getByPoint(Point p, int polySize)
