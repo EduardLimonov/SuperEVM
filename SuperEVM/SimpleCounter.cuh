@@ -39,8 +39,9 @@ struct Point
 -> coord % iter
 };*/
 
-__device__ void run(int polySize, int* polygon, Point d, int* circles, int* triangs, int nXY,
-	thrust::device_vector<int>* dones); // для одного блока
+__global__ void runBlocks(int iter, int polySize, int* polygon, Point d, int* circles, int* triangs,
+	thrust::device_vector<int>* dones);
+
 __device__ int make_cycle(int idx, int polySize, int* polygon, Point start, Point end,
 	thrust::device_vector<int>& done);
 __device__ thrust::device_vector<int> neighs(Point pos, Point& start, Point& stop, int polySize, int* polygon);

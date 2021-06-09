@@ -5,72 +5,75 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 
-__device__ void run(int polySize, int* polygon, Point d, int* circles, int* triangs, int nXY,
+__global__ void runBlocks(int iter, int polySize, int* polygon, Point d, int* circles, int* triangs,
 	thrust::device_vector<int>* dones)
 {
+	// iter -- номер шага работы алгоритма (за iter шагов построено слияние для 2^(iter-1) * d клеток)
+	// polySize -- размер стороны полигона
+	// polygon -- указатель на начало полигона
+	// circles -- указатель на счетчик кругов
+	// triangs -- указатель на счетчик треугольников
+	// dones -- таблица фигур, распознанных каждой нитью 
+	
 	Point xy = getXY();
 	Point start = Point(xy.x * d.x, xy.y * d.y);
 
-	thrust::device_vector<int> &done = *getDonesPoint(dones);
+	thrust::device_vector<int>& done = *getDonesPoint(dones);
 
 	// выполняем редукцию
-	for (int iter = 1; iter < nXY; iter *= 2)
+	// iter -> управляем нитью, отвечающей за квадрат iter * iter сегментов
+	Point end = start + d * iter;
+
+	Point xy = getXY();
+	if (xy.x % iter == 0 && xy.y % iter == 0)
 	{
-		// iter -> управляем нитью, отвечающей за квадрат iter * iter сегментов
-		Point end = start + d * iter;
-
-		Point xy = getXY();
-		if (xy.x % iter == 0 && xy.y % iter == 0)
-		{
-			if (iter == 1)
-				// проходимся по всему полигону
-				for (int x = start.x; x < end.x; x++)
-					for (int y = start.y; y < end.y; y++)
-					{
-						int idx = getByPoint(Point(x, y), polySize);
-						if (
-							(polygon[idx] == CIRCLE_COLOR || polygon[idx] == TRIANG_COLOR) &&
-							!contains(done, idx)
-							)
-							if (polygon[idx] == CIRCLE_COLOR)
-								*circles += make_cycle(idx, polySize, polygon, start, end, done);
-							else
-								*triangs += make_cycle(idx, polySize, polygon, start, end, done);
-					}
-			else
-				// проходимся только по "центральному перекрестью"
-			{
-				uniteDones(dones, iter); // сначала добавили к себе всё, что знают соседи
-				int cx = start.x + (end.x - start.x) / 2, 
-					cy = start.y + (end.y - start.y) / 2;
-				for (int x = start.x; x < end.x; x++)
-				{
-					int idx = getByPoint(Point(x, cy), polySize);
-					if (
-						(polygon[idx] == CIRCLE_COLOR || polygon[idx] == TRIANG_COLOR) &&
-						!contains(done, idx)
-						)
-						if (polygon[idx] == CIRCLE_COLOR)
-							*circles += make_cycle(idx, polySize, polygon, start, end, done);
-						else
-							*triangs += make_cycle(idx, polySize, polygon, start, end, done);
-				}
-
+		if (iter == 1)
+			// проходимся по всему полигону
+			for (int x = start.x; x < end.x; x++)
 				for (int y = start.y; y < end.y; y++)
 				{
-					int idx = getByPoint(Point(cx, y), polySize);
+					int idx = getByPoint(Point(x, y), polySize);
 					if (
 						(polygon[idx] == CIRCLE_COLOR || polygon[idx] == TRIANG_COLOR) &&
-						!contains(done, idx)
+							!contains(done, idx)
 						)
 						if (polygon[idx] == CIRCLE_COLOR)
 							*circles += make_cycle(idx, polySize, polygon, start, end, done);
 						else
 							*triangs += make_cycle(idx, polySize, polygon, start, end, done);
 				}
+		else
+			// проходимся только по "центральному перекрестью"
+		{
+			uniteDones(dones, iter); // сначала добавили к себе всё, что знают соседи
+			int cx = start.x + (end.x - start.x) / 2,
+				cy = start.y + (end.y - start.y) / 2;
+			for (int x = start.x; x < end.x; x++)
+			{
+				int idx = getByPoint(Point(x, cy), polySize);
+				if (
+					(polygon[idx] == CIRCLE_COLOR || polygon[idx] == TRIANG_COLOR) &&
+					!contains(done, idx)
+					)
+					if (polygon[idx] == CIRCLE_COLOR)
+						*circles += make_cycle(idx, polySize, polygon, start, end, done);
+					else
+						*triangs += make_cycle(idx, polySize, polygon, start, end, done);
+			}
+
+			for (int y = start.y; y < end.y; y++)
+			{
+				int idx = getByPoint(Point(cx, y), polySize);
+				if (
+					(polygon[idx] == CIRCLE_COLOR || polygon[idx] == TRIANG_COLOR) &&
+					!contains(done, idx)
+					)
+					if (polygon[idx] == CIRCLE_COLOR)
+						*circles += make_cycle(idx, polySize, polygon, start, end, done);
+					else
+						*triangs += make_cycle(idx, polySize, polygon, start, end, done);
 			}
 		}
-		__syncthreads();
 	}
 }
 
